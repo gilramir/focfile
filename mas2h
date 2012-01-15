@@ -1,0 +1,220 @@
+#!/usr/bin/perl
+#
+# mas2h
+# -----
+# Reads FOCUS Master file descriptions and converts the data to the
+# DEFINE's necessary for use in the FOCFILE C++ class. Needs
+# rdfocfdt to work.
+#
+#    *********************************************************
+#    This library is in no way related to or supported by IBI.
+#    IBI's FOCUS is a proprietary database whose format may
+#    change at any time. If you have any problems, suggestions,
+#    or comments about the FocFile C++ library, contact
+#    the author, not Information Builders!
+#    *********************************************************
+#
+#    Copyright (C) 1997  Gilbert Ramirez <gram@alumni.rice.edu>
+#    $Id: mas2h,v 1.5 1997/04/02 18:09:16 gram Exp $
+#
+#    This library is free software; you can redistribute it and/or
+#    modify it under the terms of the GNU Library General Public
+#    License as published by the Free Software Foundation; either
+#    version 2 of the License, or (at your option) any later version.
+#
+#    This library is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#    Library General Public License for more details.
+#
+#    You should have received a copy of the GNU Library General Public
+#    License along with this library; if not, write to the Free
+#    Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+# mas2h focus_file master_file
+
+$foc = shift(@ARGV);
+$mas = shift(@ARGV);
+
+if ($foc eq '' || $mas eq '') {
+	die "\nmas2h focus_file master_file\n\n\tSends output to STDOUT.\n\n";
+}
+
+# Process the FOCUS file
+# ----------------------
+if ( ! -e $foc) {
+	die "I don't think $foc exists: $!\n";
+}
+
+open(FOCUS, "rdfocfdt $foc|") || die
+	"Can't open pipe to rdfocfdt: $!\n";
+
+# Read the output form rdfocfdt
+while(<FOCUS>) {
+
+	($type, $num, $name) = split(/\s+/);
+
+	if ($type eq 'SEG') {
+		$segment_order{$name} = $num;
+	}
+	elsif ($type eq 'IDX') {
+		$index_order{$name} = $num;
+	}
+	else {
+		warn "$type unknown!\n";
+	}
+}
+
+close(FOCUS) || die
+	"Can't close pipe from rdfocfdt: $!\n";
+
+
+# Process master file description
+# -------------------------------
+open(MASTER, "$mas") || die "Can't open MFD $mas: $!\n";
+
+MFD:
+while () {
+
+	$pattern = '';
+
+	$eof = 1;
+
+	RECORD:
+	while(<MASTER>) {
+		$eof = 0;
+		if (/\$/) {
+			s/\$.*$//;
+			$pattern .= $_;
+			last RECORD;
+		}
+		else {
+			$pattern .= $_;
+		}
+	}
+	last MFD if $eof;
+
+	$_ = $pattern;
+
+	# Remove from comment ($) to newline, as many times
+	# as necessary
+	s/\$.*\n//g;
+
+	# Filename
+	if (/(FILENAME|FILE)\s*=\s*(\w+)/) {
+		$filename = $2;
+	}
+
+	# Segname
+	if (/SEG(NAME|MENT)\s*=\s*(\w+)/) {
+		$seg_off = 0;
+		$segname = $2;
+		$current_seg = $segment_order{$segname};
+		if (/SEGTYPE\s*=\s*(\w+)/) {
+			if ($1 !~ /^DK/) {
+				$segtype[$current_seg] = $1;
+				print "\n#define FOCSEG_$filename",
+					"_$segname\t\t$current_seg\n";
+			}
+		}
+	}
+
+	# Fieldname
+	if (/FIELD/) {
+		# Get rid of commas inside strings
+		s/'(.*),(.*)'/'\1 \2'/g;
+		s/"(.*),(.*)"/"\1 \2"/g;
+
+		@fields = split(/,/);
+
+		$i = 0;
+		# Find the start of the record data
+		for $field (@fields) {
+			if ($field =~ /(FIELD|FIELDNAME)\s*=\s*(\w+)/) {
+				$f_fieldname = $2;
+				$start_field = $i;
+			}
+			$i++;
+		}
+
+
+		if ($fields[$start_field + 2] =~
+			/(USAGE\s*=)?\s*([_A-Z]+)(\d*)(\.\d+)?/) {
+			$f_type		= $2;
+			$f_length	= $3;
+			$f_dec		= $4;
+		}
+
+		$f_length =~ s/^0+//;
+
+		if (!$f_dec && ($f_type eq 'D' || $f_type eq 'F')) {
+			$f_dec = '.0';
+		}
+
+		# Packs are not packed on Intel hardware
+		$f_type = 'D' if $f_type eq 'P';
+
+		# Smart dates
+		if ($f_type =~ /Y/) {
+			$f_type = 'S';
+			$f_length = 5;
+			$f_dec = '';
+		}
+
+		# Compute the printf format
+		$printf = '%'.$f_length.$f_dec;
+
+		if ($f_type eq 'D') {
+			$printf .= 'lf';
+			$byte_length = 8;
+		}
+		elsif ($f_type eq 'F') {
+			$printf .= 'f';
+			$byte_length = 4;
+		}
+		elsif ($f_type eq 'I' || $f_type eq 'S') {
+			$printf .= 'ld';
+			$byte_length = 4;
+		}
+		elsif ($f_type eq 'A') {
+			$printf .= 's';
+			$byte_length = $f_length;
+		}
+
+
+		print "#define FOCFLD_$filename",
+				"_$f_fieldname\t\t$current_seg,$seg_off,",
+				"'$f_type',$byte_length\n";
+
+		print "#define FOCFMT_$filename",
+				"_$f_fieldname\t\t\"$printf\"\n";
+
+		if (/FIELDTYPE/ || /INDEX/) {
+
+			$index_number = $index_order{$f_fieldname};
+			print "#define FOCIDX_$filename",
+				"_$f_fieldname\t\t",
+				"$index_number,'$f_type',$current_seg\n";
+		}
+
+		# Calculate the next offset
+		if ($f_type eq 'D') {
+			$seg_off += 8;
+		}
+		elsif ($f_type eq 'I' || $f_type eq 'F' || $f_type eq 'S') {
+			$seg_off += 4;
+		}
+		else {
+			$seg_off += $f_length;
+		}
+
+	}
+
+}
+
+print "\n#define FOCFILE_$filename\t\t\"";
+for ($i = 1; $i <= $#segtype; $i++) {
+
+			print "s${i} t$segtype[$i] ";
+}
+print "\"\n";

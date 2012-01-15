@@ -1,0 +1,74 @@
+The FocFile C++ Library
+Gilbert Ramirez <gram@alumni.rice.edu>
+v alpha-02, 24 April 1997
+
+Legal stuff
+______________________________________________________________________
+
+FocFile is a free C++ library for you to use with your programs. With it,
+you can read FOCUS file directly from your C++ program. FOCUS and PC/FOCUS
+are trademarks of Information Builder's Inc (IBI). My FocFile library is
+in no way related to or supported by IBI; if you have any questions,
+comments, suggestions, or flames, send them to me, not IBI.
+
+Similarly, this library was developed for my own use. I am distributing it
+as free software under the GNU Library General Public License, as
+distributed by the Free Software Foundatoimn. The text of the
+license is included in a file called 'LGPL'. Please read it.
+
+This library is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library General Public
+License for more details.
+
+If the FocFile library destroys your computer, your network, your data,
+or misrepresents your data, or causes any unpleasant happenings, I am not
+responsible for this. You have the source code to FocFile, so please use
+your own judgement as to the utility and safety of FocFile.
+
+
+Fun stuff
+______________________________________________________________________
+
+FocFile is a C++ library that reads FOCUS files created on an Intel
+platform.  The library gives your programs direct, read-only access to
+FOCUS files, allowing you to create highly-optimized data-extraction
+programs. 
+
+FocFile has been developed for reading PC/FOCUS 6.01 FOCUS files. If you
+have access to both FOCUS and a C++ compiler on another platform, please
+feel free to try FocFile on that platform. If you have any suggestions or
+code that will extend the functionality of FocFile, please let me know.
+I'll incorporate those modifications into FocFile.
+
+Thank you for taking the time to try out this library. This is the second
+alpha distribution, so don't expect perfection. Actually, all the
+documented functions (next, match, hold) seem to work very well. I have
+found no errors since the alpha-1 distribution. FocFile is still alpha,
+however, because it doesn't have all the features I'd like it to have for
+version 1.0. The one feature I *really* want for version 1.0 is
+one-to-many joins.
+
+If you are lucky, indices will work for you. There are different version
+of FOCUS indices, even on the same platform, so don't worry when FocFile
+dies on your file. Let me know about it, and together we can patch
+FocFile so that it can read your index.
+
+The file 'progman.txt' is the programmer's manual. You need to read this.
+Postscript, TeX DVI, and HTML versions of this document are also
+available on the FocFile home page:
+
+The Makefile supplied with the FocFile should create a library file
+'focfile.a'  Please read chapter 2 of the programmer's manual for further
+installation instructions.
+
+A sample program 'testcar.cpp' shows you how to read the CAR FOCUS file
+that came with your FOCUS distribution.
+
+Enjoy!
+
+Any questions, comments, suggestions, premonitions or flames? Please
+e-mail them to me at gram@alumni.rice.edu
+
+______________________________________________________________________
+$Id: README,v 1.3 1997/04/24 12:18:21 gram Exp $

@@ -1,0 +1,340 @@
+
+                                The Focus File
+
+                         Written By Peter Lenahan, 6/20/87
+
+
+      The Focus file is a Hierarchial File that contains pointers, data
+      and control information.   The format of the file is primarily
+      defined by a Focus master description, although there is
+      always a fixed portion of the file that is defined to control the
+      linking of data pages together.
+
+      Probably the best way to start the description of the file is to
+      see the basic layout of the file.
+
+      The Focus file is broken into pages.  A page is 4096 bytes in length.
+      Pages are numbered in the file from 1 to 65535.
+
+      Page one of the file has special meaning.  This page contains data
+      at the beginning of the page and near the end of the page it contains
+      the Focus File directory table.
+
+      The Focus File directory table (FDT) see figure 1, is information
+      that describes the basic information that insures the consistancy
+      between a master file and the database file.  It contains
+      information about each segment and each index in the file, in
+      addition extra space is allocated in the table for the addition of
+      later indexes.
+
+      Near the end of the Focus page is page control information.  This
+      information describes where free space on the page begins and where
+      the deleted space begins. The time and date of the last transaction
+      and where the next page of data for the same segment begins.
+
+      The last 96 bytes of each Focus page are unused.  This is because of
+      an early version of the IBM operating system that only supported
+      block sizes up to 4000 bytes long.
+
+
+      Figure 1,   Basic layout of a Focus file
+
+      
+      ---------------------------------------------------------------------
+      | Data Area                        |  F D T  |Len| Control | Unused |
+      ---------------------------------------------------------------------
+      | Data Area                                      | Control | Unused |
+      ---------------------------------------------------------------------
+      | Data Area                                      | Control | Unused |
+      ---------------------------------------------------------------------
+      | Data Area                                      | Control | Unused |
+      ---------------------------------------------------------------------
+
+      * F D T  - File Directory Table
+
+
+      The File Directory Table is a variable length table depending on the
+      number of segment instances in the file.  There is one entry in the
+      table for each segment. In addition there is one entry for each index.
+      Each table entry is 20 bytes long and the table starts at the high
+      end of the page and goes backwards.  The "Len" is the number of entries
+      in the table,  this is a 2 byte integer value.
+
+      Figure 2,  File Directory table layout, Segment Description
+
+      
+      ---------------------------------------------------------------------
+      | Index 7 | Index 6 | ... | Index 1 | Seg n | Seg n-1 | ... | Seg 1 |
+      ---------------------------------------------------------------------
+                                                                 /        |
+                                                                /         |
+         -------------------------------------------------------          |
+        /                                                                 |
+       /                                                                  |
+      |<--2-->|<--2->|<---8--->|<---2--->|<--2--->|<----2---->|<----2---->|
+      | bytes | bytes|  bytes  |  bytes  | bytes  |   bytes   |  bytes    |
+      ---------------------------------------------------------------------
+      | First | Last | Segment | Segment | Parent | Number of | Number of |
+      | Page  | Page |  Name   | Length  | NUmber |  Pages    | Pointers  |
+      ---------------------------------------------------------------------
+
+      First Page,  This is the page number of the first page in the database
+      that data for the segment exists on.
+
+      Last Page, This is the last page in the database that data for the
+      segment exists on.   The first page is linked to this page thru a
+      link list of page numbers that exist in the control area at the end of
+      each Focus page.
+
+      Segment Name,  This is the 8 byte segment name from the master file.
+      It is used to identify the segment in the database with the segment
+      in the master file.
+
+      Segment Length,  This is the total number of words (4 byte words)
+      allocated on a page for one occurance of a data instance.  The segment
+      length is defined as follows.
+
+        Each pointer takes 1 word
+        Each Field takes space depending on the format of the field.
+           Format Lengths:
+               I - Integer fields 4 bytes
+               F - Floating fields 4 bytes
+               D - Double  fields 8 bytes
+               P - Packed fields take 8 bytes
+               A - Alpha they take 1 byte for each character
+           If the total number of bytes are not a multiple of 4 then round up
+           to the nearest multiple of 4 then divide by 4 to get the number of
+           words allocated for data.
+
+      Parent Number,  The number of your parent segment in the FDT.
+
+      Number of Pages,  This is the number of data pages allocated to
+      the segment in the database.
+
+      Number of Pointers,  This is the number of pointers that preceed
+      the data instance.
+
+      Index formats are different for each operating system that Focus
+      resides on.  But a common format of the control information describing
+      the index pages is located in the FDT.
+
+      Figure 3,  File Directory table layout, Index Description
+
+      
+      ---------------------------------------------------------------------
+      | Index 7 | Index 6 | ... | Index 1 | Seg n | Seg n-1 | ... | Seg 1 |
+      ---------------------------------------------------------------------
+                               /           \
+                              /             \
+         ---------------------               ---------------------------
+        /                                                               \
+       /                                                                 \
+      |<-----2---->|<----2---->|<----12---->|<------2------->|<-----2---->|
+      |    bytes   |   bytes   |   bytes    |     bytes      |    bytes   |
+      ---------------------------------------------------------------------
+      | First page | Last page | Field name | Number of pages| Index type |
+      ---------------------------------------------------------------------
+
+      First Page,  This is the page number of the first page in the database
+      that data for the index exists on.  
+
+      Last Page, This is the last page in the database that data for the
+      index exists on.
+
+      Field Name,  Is the 12 byte field name of the index.
+
+      Number of pages, This is the number of pages in the database allocated
+      to storing index information for this index.
+
+      Index type,  This is the type of index that the file was created with
+      On the mainframe the types are
+          0 - Hash index format
+        128 - B-Tree index format.
+
+      Page Control information
+      ------------------------
+
+      At the end of each Focus page is a 28 byte control information array
+      (See Figure 1).  This is detailed information controlling the usage
+      of the data space on the page.
+
+      Figure 4, Page Control Information
+
+      |<---4--->|<--2->|<---2--->|<--2->|<---2-->|<---2--->|
+      ---------------------------------------------------------
+      | Focus   | Next | Segment | Last | Page   | First   |
+      | Pointer | Page | Number  | Word | Number | Deleted |
+      ---------------------------------------------------------...
+
+                    <---2---->|<---1----->|<--3->|<--4->|<-----4----->|
+                      -------------------------------------------------
+                        Free  | Encyption | Date | Time | Transaction |
+                        Space | Flag      |      |      | Number      |
+                   ...-------------------------------------------------
+
+      Focus Pointer,  This is a Focus pointer (discussed later) that points
+      to the start of the logical pointer chain.
+
+      Next Page,  This is the page number of the next Focus page that
+      data exists on for this segment.  This is essentialy a link list that
+      joins all the pages for a given segment together.  When this is zero
+      then this is the last page in the file that data exists on for the
+      segment.
+
+      Segment number,  This is the segment number of the segment whose data
+      exists on this page in the database.  The segment number is displayed
+      to the user when you issue the Focus command:
+          CHECK FILE filename PICTURE
+
+      Last Word,  This is the location on the page that data can be written
+      up to.
+
+      Page Number, This is the Page number of this page within the file.
+
+      First Deleted, This is the word index of the first deleted segment
+      instance on the page.
+
+      Free Space,  This is the word index of the first free word on the
+      page.  When data is added to the page it always starts on a word
+      boundary.  A word boundary is defined as a multiple of 4 bytes.
+
+      Encryption flag,  This is a flag that states if the page is
+      encrypted or not.
+
+      Date,  This is the date of the last transaction that caused this
+      page to be written.
+
+      Time,  This is the time of the last transaction.
+
+      Transaction Number,  This is the transaction number of the last
+      transaction on the page.
+
+      Each segment in a Focus file defines a different data structure
+      because a Focus page depends on a fixed structure,  each segment
+      is stored on it own set of pages.  Two different segments are never
+      stored on the same Focus page.
+
+      Segment instance description
+      ----------------------------
+
+      A segment instance contains pointers and data.  The number of pointers
+      is computed as follows:
+         1 pointer for each child segment (including Unique, Keyed Unique or
+           Keyed Multiple children)
+         1 pointer to the next occurance of data for the current segment
+           (This is allocated for Unique segment and an END-OF-CHAIN pointer
+            is stored here)
+         1 pointer to the parent if this is a descendant segment.
+
+      The format of the data portion of the segment instance is:
+         Each field is stored next to the following field as defined in
+         the master file.  Numbers are stored in the binary format that
+         they are defined as.  The length of the fields were indicated
+         earlier in this document.  No padding occurs between fields.
+
+      Pointers preceed the data, so a segment instance looks as follows:
+
+      Figure 5, Segment instance
+
+         --------------------
+         | Pointers |  Data |
+         --------------------
+
+      A Focus page can contains multiple occurances of segment instances.
+      As many instances as can fit on a page are used. The data is added
+      at the beginning of free space or is inserted in a deleted segment
+      instances location.   The instance is chained to parent and children
+      instances via the pointers.
+
+      Figure 6, Focus Page layout containing data
+
+      -------------------------------------------------------------
+      | Pointers | Data || Pointers | Data || Pointers | Data ||
+      ------------------------------------------------------------- ...
+
+
+              --------------------------------------------------
+                  || Pointers | Data || ... | Control | Unused |
+         ... ---------------------------------------------------
+
+
+      Focus Pointers
+      --------------
+
+      A Focus pointer is 4 bytes long and is broken into 3 sections, the
+      pointer type, the data index and the data page number.  The pointer
+      type defines the relationship of the pointer to the segment instance
+      that it points to.
+
+         Pointer Types
+         -------------
+           1   Keyed Unique (KU)
+           2   Keyed Multiple (KM)
+           3   Descendant or Child instance
+           4   Next instance (of the same segment)
+           5   Parent
+           6   Prior (unused at this time)
+           7   End-of-file (EOF)
+           8   Deleted data
+           9   Ignored
+          10   Dynamic Keyed Unique   (DKU)
+          11   Dynamic Keyed Multiple (DKM)
+
+          In addition A special END-OF-CHAIN pointer is defined
+          END-OF-CHAIN = 0x010000000
+
+      The Pointer is stored as follows
+
+         Bits  1-6  are the Pointer Type
+         Bits  7-16 are the Page Index
+         Bits 17-32 are the Page Number
+
+      Figure 7, A Focus Pointer
+
+         |<---6-->|<----10---->|<-------16------->|
+         |   bits |    bits    |       bits       |
+         ------------------------------------------
+         | 000000 | 0000000000 | 0000000000000000 |
+         ------------------------------------------
+           Type      Index        Page Number
+
+       The Index is a word array index indicating the location of the data.
+       It is relative to a base value of 1 indicating the first word on
+       the page.
+                                       10
+       The range of the index is 1 to 2   or 1024 words.
+
+       The page number is an unsigned integer with a range
+                16
+       of 1 to 2    or 65535 pages.
+
+       Zero is an undefined Page and an undefined Index value.
+
+
+       Pointers are organized within a segment instance as follows:
+       all the down pointers are place at the beginning of the instance
+       in the order that the children are defined.   Then the Next
+       occurance pointer follows the down pointers then finally the
+       parent pointer preceeds the data.
+
+       Figure 8, Pointer order in a segment instance
+
+                                         /\
+                                          |
+                                          |
+        --------------------------------------------------
+        |  Child | Child | ... | Next | Parent | Data Area
+        --------------------------------------------------
+            |       |             |
+            |       |             +--------->
+            V       V
+
+
+       When the child pointer is a static cross reference pointer it is
+       not resolved immediately when the data instance is loaded.  It is
+       only resolved when a reference to the static cross reference is
+       made.  At that time the index in the cross reference file is
+       searched to locate the key value and then when the cross reference
+       segment is retrieved the static cross reference pointer is resolved.
+
+

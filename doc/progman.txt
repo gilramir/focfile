@@ -1,0 +1,1206 @@
+  FocFile Programmer's Guide
+  Gilbert Ramirez
+  v alpha-02, 24 April 1997
+
+  FocFile is a C++ library that reads FOCUS files.  The library gives
+  your programs direct, read-only access to FOCUS files, allowing you to
+  create highly-optimized data-extraction programs.  Currently FocFile
+  is only known to work on the Intel platform.	This document shows the
+  C++ programmer how to use the FocFile library to read FOCUS files in
+  their own programs.
+  ______________________________________________________________________
+
+  Table of Contents:
+
+  1.	Introduction
+
+  1.1.	The scope of FocFile
+
+  1.2.	Acknowledgements
+
+  1.3.	Copying
+
+  1.4.	Bugs
+
+  1.5.	Limitations
+
+  1.6.	History
+
+  1.6.1.  alpha-01:
+
+  1.6.2.  alpha-02:
+
+  2.	Usage
+
+  2.1.	Installation
+
+  2.1.1.  Tweaks
+
+  2.2.	Pre-processing the MFD
+
+  2.3.	Theory of FocFile
+
+  2.3.1.  The FOCUS File
+
+  2.3.2.  How to write your program
+
+  2.3.3.  Creating a FOCFILE object
+
+  2.3.4.  Segment cursors
+
+  2.3.4.1.	Retrieving the next record
+
+  2.3.4.2.	Repositioning the segment cursor
+
+  2.3.5.  Child segments
+
+  2.4.	Using FOCUS Dates
+
+  3.	The Library
+
+  3.1.	Data types
+
+  3.2.	FOCFILE API
+
+  3.2.1.  Constructor
+
+  3.2.2.  Destructor
+
+  3.2.3.  find()
+
+  3.2.4.  hold()
+
+  3.2.5.  join()
+
+  3.2.6.  join_clear()
+
+  3.2.7.  match()
+
+  3.2.8.  match_with_uniques()
+
+  3.2.9.  next()
+
+  3.2.10. next_with_uniques()
+
+  3.2.11. reccount()
+
+  3.2.12. reposition()
+
+  3.2.13. string_alloc()
+
+  3.3.	SMDATE API
+
+  3.3.1.  Constructor
+
+  3.3.2.  Destructor
+
+  3.3.3.  internal()
+
+  3.3.4.  julian()
+
+  3.3.5.  mday()
+
+  3.3.6.  month()
+
+  3.3.7.  today()
+
+  3.3.8.  wday()
+
+  3.3.9.  year()
+
+  3.3.10. zmonth()
+
+  3.3.11. zwday()
+
+  3.4.	Caveats
+  ______________________________________________________________________
+
+  1.  Introduction
+
+  1.1.	The scope of FocFile
+
+  With the FocFile library programmers can read FOCUS files directly
+  from a C++ program. The API of the library is similar to the MODIFY
+  language that FOCUS provides. However, by using C++, you can take
+  advantage of other data structures and functions not available in
+  MODIFY.  The flexibility of this approach lets you create highly-
+  optimized, very fast data-extraction routines.
+
+  FocFile does not replace FOCUS.  The C++ and FocFile combination is
+  better suited for data-extraction, not report-writing.  I wrote
+  FocFile in order to speed up a FOCUS data-extraction program that ran
+  very slowly in the FOCUS fourth-generation language.	FOCUS did not
+  know all the parameters to the data and I had no access to arrays in
+  MODIFY, so FOCUS could not optimize my program very well.  By taking
+  direct control of the FOCUS file in a C++ program, I created a very
+  fast version of the data-extraction program. I decreased the run time
+  from 8 hours to 1.3 hours.  This speed-up won't occur in all
+  situations, but only in the most extreme (bizzare?) data-processing
+  problems.
+
+  I like to think of FOCUS as an automatic transmission in a car. The
+  transmission, like FOCUS, makes a lot of decisions for you
+  automatically. You are freed to concentrate on higher-level goals.
+  Automatic transmissions work very well over the long-run, but not in
+  certain isolated situations.	That's when the driver needs a manual
+  transmission, which is C or C++.  The driver has to do all the work by
+  hand, but can control the performance of the car much better.	Both
+  types of transmissions are useful for different situations; it's best
+  to have access to both C++ and FOCUS to get the job done well.
+
+  You might consider trying FocFile if your data-extraction program runs
+  slowly because of the complex arrangement of your FOCUS files. If you
+  find yourself MATCHing a lot because of parallel data paths, FocFile
+  might be able to help.  Since FocFile itself is optimized for speed,
+  the extra effort of using C++ for some data-extraction tasks may pay
+  off handsomely.  FocFile can also overcome limitations in FOCUS. The
+  most salient example is the TABLE language's limit of 64 verb-objects
+  in a request. With C++ and FocFile, if you've got the memory, you can
+  retrieve as much data as you want.
+
+  C++ was chosen as the language for FocFile because of its speed,
+  popularity, and code re-usability.  The object paradigm makes easy re-
+  use and integration possible.	To read FOCUS files you simply link
+  FocFile to your program and create an object that points to a FOCUS
+  file.
+
+  The FocFile library can read FOCUS files that were created on Intel
+  platforms. Specifically, PC/FOCUS 6.01 for DOS is the target of the
+  library since the author uses that version the most. The data-portions
+  of FOCUS files is pretty similar across platforms, but the index-
+  portions are not.  FocFile might work to some extent on other
+  platforms, but the portability must be worked on some more.  If you
+  are reading a FOCUS file, your C++ program must be compiled on the
+  same architecture that your FOCUS file was created on.  I created
+  FocFile in Linux on an i486, and it reads DOS PC/FOCUS files very
+  well.
+
+  FocFile has been compiled with the GNU C++ compiler (g++) under Linux
+  and DOS. If you write C or C++ in DOS, I highly recommend djgpp, D. J.
+  Delorie's port of the GNU compiler suite. You can read about it at the
+  DJGPP Home Page <http://www.delorie.com/djgpp/>.
+
+  Perhaps in the future FocFile can be extended to read FOCUS files on
+  other platforms (Sun, HP, MVS, etc.). This can only be accomplished
+  with the help of other interested programmers, as the author's
+  collection of C++ compilers and access to FOCUS versions only
+  intersect on the Intel platform.
+
+  1.2.	Acknowledgements
+
+  FOCUS and PC/FOCUS are trademarks of Information Builders, Inc. (IBI)
+  FocFile is neither related to nor supported by IBI. If you have any
+  questions, comments, or suggestions about FocFile, please send them to
+  me, not to IBI. You may e-mail me at gram@alumni.rice.edu.
+
+  i486 is a trademark of Intel Corporation.
+
+  FocFile would have never been written without the excellent
+  description of FOCUS files by Peter Lenahan, The Focus File, written
+  on June 20, 1987. Many thanks to him and IBI for granting permission
+  to use and distribute that information.
+
+  Gilbert Ramirez hacked through hex dumps of PC/FOCUS files to
+  understand the format of the PC/FOCUS 6.01 B-Tree index.
+
+  This Programmer's Guide was written with the SGML-Tools package, which
+  can be found at the SGML-Tools home page
+  <http://web.inter.nl.net/users/C.deGroot/sgmltools/>.
+
+  Much of the date routines used inside the SMDATE class were taken from
+  the IDL Astronomy Users's Library
+  <http://idlastro.gsfc.nasa.gov/homepage.html>. Specifically, the time
+  routines were written for IDL by William Thompson, from GSFC, NASA, on
+  13 Sep 1993, Thompson cites the algorithm by Fliegel and Van Flandern
+  (1968) reprinted in the Explanatory Supplement to the Astronomical
+  Almanac, 1992. Gilbert Ramirez translated the routines form IDL to C++
+  (which was not very difficult).
+
+  1.3.	Copying
+
+  FocFile is not in the public domain. It is copyrighted by the author.
+  However, you are free to use it, modify it, and re-distribute it for
+  no fee under the terms of the GNU Library General Public License,
+  version 2 or later. That license came as a text-file in the FocFile
+  distribution; please read it.
+
+  Basically, you are free to use the software for any purpose as long as
+  you give the same rights to those who receive the library. If you
+  create a program with FocFile and do not wish to distribute your
+  entire program as free software, you must distribute your program in
+  such a manner that a user can still modify the FocFile part (which is
+  free, as in ``freedom''), and link it into the non-free part of your
+  program. You can, for example, provide the object files of the non-
+  free parts, and the source code of FocFile. If you have any questions,
+  please read the GNU Library General Public License which came as a
+  text file with the FocFile package.
+
+  1.4.	Bugs
+
+  These are the known bugs. Since they are known to me, I would like to
+  fix them.
+
+  o  Only old-style FOCUS files are supported. These FOCUS files have a
+     size-limit of 256MB. FOCUS files as of FOCUS 7 can be up to 1GB in
+     size.  Different internal pointers are used, and could be supported
+     in future versions of FocFile. I just have to change lots of ints
+     to longs. :-)
+
+  o  SMDATEs can't parse FOCUS-style date mods. For now, you have to
+     explicitly call functions to retreive the month, day, year, etc.,
+     described with a date.
+
+  o  FocFile has never been tested on non-Intel platforms. Ergo,...
+
+  o  Packed fields aren't supported. The Intel version of FOCUS doesn't
+     have packed fields, so I didn't know how to support them.
+
+  o  Joins work only for one-to-one relationships. One-to-many joins
+     will be added in the future.
+  o  Virtual fields (a.k.a, DEFINEd fields aren't supported.  DEFINE-
+     based joins are not supported because of that.
+
+  o  The AND feature of JOINs is not supported (automatic host-field
+     concatenation).
+
+  o  The match() function isn't smart. It won't use an index even if it
+     could.
+
+  o  Only one version of the B-Tree indices are supported.  It appears
+     that different versions of FOCUS, even on the same platform, have
+     slightly different versions of the B-Tree indices.	And on the IBM
+     mainframe, hash indices also exist.
+
+  o  You cannot access cross-referenced segments yet.
+
+  o  FocFile knows nothing about security and access-permissions, as are
+     defined in the Master File Description.
+
+  o  All segments must occur within the same FOCUS file. FOCUS has an
+     option in which you can store specific segments of a FOCUS file in
+     another FOCUS file, thereby avoiding the size-limit of 256 MB per
+     FOCUS file. This option is not yet supported in FocFile.
+
+  o  I'm more of a C programmer than a C++ programmer. I chose to write
+     FocFile in C++ so that it would be easy for other programmers to
+     use the library in their own programs. Code re-use is much easier
+     in C++ than in C.	Some of the API might seem strange to a native
+     C++ programmer. If so, please let me know and perhaps together we
+     can embellish the FocFile API.  Is there a better way than using
+     stdio's FILE* and printf()?
+
+  If you find any other bugs, or have any comments or questions, please
+  write me.
+
+  1.5.	Limitations
+
+  These are the known limitations. I doubt that they will ever be
+  overcome.
+
+  o  Sync-machines are not supported. You can only read FOCUS files that
+     you can access through the filesystem.
+
+  o  Hash indices on the mainframe will probably never be supported. You
+     have to know the hash function in order to hash a string...
+
+  o  Encrypted FOCUS files aren't supported, for the same reason as hash
+     indices.
+
+  o  FocFile can only read FOCUS files from the same platform.	Cross-
+     platform reading is not supported.
+
+  1.6.	History
+
+  1.6.1.  alpha-01:
+
+  The data and index code seems to be stable and the library is already
+  useful. First public release.
+
+  1.6.2.  alpha-02:
+
+  o  Smartdates in FOCUS files are now supported by a new class
+     available to the programmer, the SMDATE class.
+
+  o  FocFile is now a library (focfile.a) instead of a simple object
+     file.
+
+  o  The API of match(), match_with_uniques(), and find(), changed to
+     reflect the API of hold().
+
+  2.  Usage
+
+  2.1.	Installation
+
+  You must get and unpack the FocFile distribution. It is distributed as
+  both gzip'ed tar file or a zip'ed file. The compressed tar file
+  contains Unix-style text files in which the end-of-line character is
+  an ASCII new-line character.	The zip'ped file contains DOS-style text
+  files in which the end-of-line characters is an ASCII carriage-return
+  and new-line combination.  Other than the end-of-line character, both
+  DOS and Unix distributions are the same.
+
+  The FocFile library is comprised of two source files, focfile.cpp and
+  smdate.cpp. The C++ is standard and should compile easily.  The
+  included Makefile should create a library called focfile.a, and should
+  require only minimal tweaking.  Your C++ program should #include the
+  focfile.h header file, and be linked to focfile.a.
+
+  Also included in the package is mas2h, a Perl program that converts
+  FOCUS master file descriptions into C++ header files. You must have
+  Perl 4 or 5 in order to use this program. Perl for Unix, DOS, and
+  other platforms is available from any CPAN site. Try Sterling's
+  Comprehensive Perl Archive Network site.
+  <http://ftp.sterling.com/programming/languages/perl/CPAN/> The mas2h
+  program calls another program, rdfocfdt which helps it read FOCUS
+  files. The rdfocfdt program should be compiled and linked against
+  focfile.a.
+
+  2.1.1.  Tweaks
+
+  If the C library on your platform doesn't contain the strdup()
+  function, comment out the line #define HAS_STRDUP at the beginning of
+  focfile.cpp.
+
+  If you wish to have lots of debugging information sent to stdout,
+  uncomment the #define DEBUG line in either focfile.cpp or smdate.cpp.
+  Each source file has its own debugging information. The information is
+  only useful if you want to hack on the FocFile source code.
+
+  If you are compiling FocFile on an IBM mainframe, uncomment the
+  #define IBM_MAINFRAME line in focfile.cpp. Admittedly, this does very
+  little so far, since I don't yet have access to a C++ compiler on MVS.
+
+  2.2.	Pre-processing the MFD
+
+  To access a FOCUS file in your C++ program, you should use mas2h to
+  convert the master file description of your FOCUS file to a C++ header
+  file.	mas2h calles rdfocft and stores information about the file,
+  segments, fields, and indices in C++ pre-processor macros.  You
+  #include the new header file and the focfile.h header file in your C++
+  program. The macros pass information to the FocFile functions.
+
+  There are five types of macros:
+
+     FILE_MACRO
+	The information in the Master File Description that cannot be
+	found within the FOCUS file itself is encoded in a string. This
+	string must be passed to the FOCFILE constructor.
+
+     SEGMENT_MACRO
+	Uniquely defines a segment within a FOCUS file.
+
+     FIELD_MACRO
+	Uniquely defines a field within a FOCUS file.
+
+     FORMAT_MACRO
+	A printf() formatting string useful when printing the value of a
+	field. (This is where my C-roots are visible).
+
+     INDEX_MACRO
+	Uniquely defines an index within a FOCUS file.
+
+  The file macro is comprised of two parts, separated by an underscore.
+  The macro is FOCUS_X, where X is the name of the FOCUS file.	Thus,
+  FOCUS_CAR would be a macro for car.foc.
+
+  The other macro names are comprised of three parts separated by
+  underscores: A_B_C The whole macro is fully capitalized.
+
+     Part A
+	The type of macro: FOCSEG for segment macros, FOCFLD for field
+	macros, FOCFMT for printf() format macros, or FOCIDX for index
+	macros.
+
+     Part B
+	The name of the FOCUS file, without the .FOC extension. For
+	example, CAR.
+
+     Part C
+	The name of the segment or field. Indices are named the same as
+	the field for which they exist.
+
+  For example, the following portion of the master file description for
+  the car.foc FOCUS file
+
+       FILENAME=CAR,SUFFIX=FOC
+       SEGNAME=ORIGIN,SEGTYPE=S1
+	FIELDNAME=COUNTRY,COUNTRY,A10,$
+
+  produces the following macros. It's very convenient to use the pre-
+  processor macros in your C++ program!
+
+       #define FOCUS_CAR	       "s1 tS1"
+       #define FOCSEG_CAR_ORIGIN       1
+       #define FOCFLD_CAR_COUNTRY      1,0,'A',10
+       #define FOCFMT_CAR_COUNTRY      "%10s"
+
+  2.3.	Theory of FocFile
+
+  2.3.1.  The FOCUS File
+
+  A FOCUS file is a hierarchial arrangement of two-dimensional tables,
+  called segments in FOCUS terminology.	Each segment is comprised of
+  records.  Since the FOCUS file is hierarchial, segments are connected
+  to each other in parent-child relationships.	To process FOCUS files,
+  you work from the root segment, down toward the leaf segments, from
+  parent to child, segment by segment.
+
+  If you are experienced with the MODIFY commands that FOCUS provides,
+  then you will have no problem learning FocFile. You might be able to
+  skim these instructions and jump directly to the list of functions.
+
+  2.3.2.  How to write your program
+
+  You must include the focfile.h header file in your C++ program. That
+  header file defines the classes from which FocFile operates. And of
+  course you must link your program with either the focfile library.
+  Additionally, you must include the header files that mas2h creates for
+  each FOCUS file that you want to access in your C++ program.
+
+  2.3.3.  Creating a FOCFILE object
+
+  While the FocFile library contains many classes, as the application
+  programmer you use only one class and its public functions: the
+  FOCFILE class.
+
+  Before you can create a FOCFILE object, you must open your FOCUS file
+  with a FILE* handle available in the stdio library.  If you are
+  working on a DOS system, you must use the ``binary'' flag available in
+  the fopen() function. Once you open the FOCUS file, you simply pass
+  the filehandle as the second argument to the FOCFILE constructor. The
+  first argument of the FOCFILE constructor is the file macro that mas2h
+  made for that FOCUS file.
+
+  Here's an example showing how to create an object that reads the
+  car.foc FOCUS file.
+
+  ______________________________________________________________________
+
+  FILE	*car_fh;
+  FOCFILE     *car;
+
+  if (!(car_fh = fopen("car.foc", "rb"))) {
+      fprintf(stderr, "Can't open car.foc\n");
+      exit(-1);
+  }
+
+  car = new FOCFILE(FOCUS_CAR, car_fh);
+  ______________________________________________________________________
+
+  After you are finished with the object, you can simple delete it. It
+  is your responsibility to fclose() the filehandle that you fopen()ed.
+
+  2.3.4.  Segment cursors
+
+  To read fields in a FOCUS file, you move a cursor in each segment. The
+  cursor is the current record in that segment.	When you create a
+  FOCFILE object, the cursor is positioned at the very beginning of the
+  root segment; the cursor lies before the records, not on a record. You
+  cannot access any records or fields yet.
+
+  2.3.4.1.  Retrieving the next record
+
+  To move the cursor to the first record in the root segment, or in any
+  segment, use the next() method.  The next() method will return a non-
+  zero value if a record was reached, otherwise a zero is returned. This
+  makes next() useful in while loops.  For example, you can count the
+  number of countries in car.foc by next()-ing through the records in
+  the root segment:
+
+  ______________________________________________________________________
+  // Assume that car is a FOCFILE* that was initialized above
+
+  int num_countries = 0;
+
+  while ( car->next() ) {
+	  num_countries++;
+  }
+
+  cout	<< "There are " << num_countries << " countries in car.foc."
+	  << eol;
+  ______________________________________________________________________
+
+  2.3.4.2.  Repositioning the segment cursor
+
+  Please note that after iterating the cursor through all the records,
+  the cursor now lies after all the records in the root segment. The
+  cursor is not on a record any more. If you were to run the above
+  counting function again, it would report zero countries, since the
+  cursor cannot be advanced from its current position.
+
+  FOCUS files only contain forward pointers. The lack of backward
+  pointers means that there is no previous() function you can use to
+  jump to the previous record. However, the reposition() function will
+  move the cursor back to the beginning of the segment. From there you
+  can start the counting again and again and again:
+
+  ______________________________________________________________________
+  // Assume that the previous function was named count_countries
+  count_countries(car);
+
+  car->reposition();
+  count_countries(car);
+
+  car->reposition();
+  count_countries(car);
+  ______________________________________________________________________
+
+  An implicit reposition() is done during the construction of the
+  FOCFILE object.
+
+  Here's how to print all the countries in the car.foc file.
+
+  ______________________________________________________________________
+  char *country = car->string_alloc(FOCFLD_CAR_COUNTRY);
+
+  while ( car->next(FOCSEG_CAR_ORIGIN) ) {
+      car->hold(country, FOCFLD_CAR_COUNTRY);
+      printf(FOCFMT_CAR_COUNTRY "\n", country);
+  }
+  ______________________________________________________________________
+
+  The pre-processor will replace FOCFMT_CAR_COUNTRY with "%10s".
+
+  2.3.5.  Child segments
+
+  To access a child segment, you must first access the parent. This is
+  true of all the record-access functions in FocFile: next(), match(),
+  and find(). What if you want to get a list of all the cars in the
+  car.foc file?	The car information is kept in the second segment, the
+  child of the country segment. Can you just iterate through the second
+  segment?
+
+  ______________________________________________________________________
+  // This is wrong. This will not work. FocFile will complain and die.
+  // -----------------------------------------------------------------
+  char *car = car->string_alloc(FOCFLD_CAR_CAR);
+  car->reposition();
+
+  while ( car->next(FOCFLD_CAR_CAR) ) {
+      car->hold(car, FOCFLD_CAR_CAR);
+      printf(FOCFMT_CAR_CAR "\n", car);
+  }
+  ______________________________________________________________________
+
+  No, you cannot. At first this might seem like the obvious solution.
+  But each child record is intimately connected with its parent. The
+  correct way to print all the cars is with nested while loops:
+
+  ______________________________________________________________________
+  char *car = car->string_alloc(FOCFLD_CAR_CAR);
+  car->reposition();
+
+  while ( car->next(FOCFLD_CAR_COUNTRY) ) {
+      while ( car->next(FOCFLD_CAR_CAR) ) {
+	  car->hold(car, FOCFLD_CAR_CAR);
+	  printf(FOCFMT_CAR_CAR "\n", car);
+      }
+  }
+  ______________________________________________________________________
+
+  This paragraph needs to be re-written...
+
+  Why does FocFile make the programmer go through this hassle?	FocFile
+  tries to be as fast as possible by doing as little disk I/O as
+  necessary.  Cursor information in child-segments is not updated until
+  the parent record is accessed. Imagine a FOCUS file with many
+  generations of segments. If your program accesses only the first one
+  or two generations, you really don't want FocFile to read the disk for
+  every segment.  FocFile doesn't perform the disk I/O for a segment
+  until it thinks that you might use that segment.
+
+  This approach requires that you access each segment along the segment-
+  chain. Otherwise, FocFile would not know when you are about to access
+  the segment. True, the checking routine could be done at every record-
+  access, but this would slow down FocFile.
+
+  2.4.	Using FOCUS Dates
+
+  Only recently has the FOCUS system been augmented to handle dates in a
+  natural and uncumbersome way.	The ``smartdate'' data-type in FOCUS
+  allows the easy manipulation of dates. Smartdates can be formatted in
+  a number of ways, showing year, month, day, or weekday in any order.
+  Regardless of the external representation of the date, the internal
+  format of smartdates is always the same: the number of days since
+  December 31, 1900. By storing dates internally as integers,
+  calculations are easier; to find the number of days between two
+  smartdates, simply subtract one from the other.
+
+  The integer that is the internal value of the smartdate is of little
+  value to the user, yet, it is that integer which is stored in the
+  FOCUS file.  I call this value the ``modified Julian date''. When
+  dealing with a smartdate field, FocFile automatically converts the
+  modified Julian date to an object that knows how to use that number to
+  represent Gregorian dates.
+
+  Currently the SMDATE class is in its infant stage. It does not yet
+  support the same formatting options that FOCUS does. However, for now,
+  you can call the SMDATE methods to retreive the parts of the date that
+  you're interested in, and concatenate them into a string.
+
+  ______________________________________________________________________
+  SMDATE  visit_date;
+
+  printf("M/D/Y is: %02d/%02d/%04y\n",
+	  visit_date.month(),
+	  visit_date.mday(),
+	  visit_date.year());
+  ______________________________________________________________________
+
+  FOCUS-style formatting options will be added to SMDATE in the future!
+
+  3.  The Library
+
+  3.1.	Data types
+
+  There are five types of variables that your C++ program will use to
+  handle the field-types found in FOCUS files.
+
+     char*
+	Alphanumeric strings are stored as characters, and pointed to by
+	char*'s.
+
+     long
+	Integers in FOCUS are stored a 4-byte integers. On a 32-bit
+	sytem you can use int or long, but a 16-bit system requires
+	long. For the best portability, you should use long all the
+	time.
+
+     double
+	Double-precision floating point values are 8-byte doubles.
+
+     float
+	Single-precision floating point values are 4-bytes floats.
+
+     SMDATE
+	This C++ class included in the FocFile library implements date
+	routines. You can manipulate FOCUS's Smartdates with this class.
+
+  Smartdates are stored in FOCUS files as the long-integer number of
+  days since the end of the 19th century, December 31, 1900. (Yes, 1900
+  was in the 19th century). The SMDATE class will convert that long-
+  integer into a Gregorian-style date for use by humans. Once the SMDATE
+  object is created, you can display the Smartdate to any format that
+  you want.
+
+  Packed numbers are not supported in PC/FOCUS, the platform for which
+  FocFile was originally developed. Therefore, I have not implemented
+  them in FocFile. Perhaps in the future, if FocFile expands into new
+  territory.
+
+  3.2.	FOCFILE API
+
+  In the following glossary of FOCFILE methods, the term cursor is used
+  to mean ``the current-record pointer''. A cursor exists for each
+  segment in the chain of processing.
+
+  3.2.1.  Constructor
+
+       FOCFILE(FILE_MACRO, FILE*)
+
+  The FOCFILE constructor takes two arguments: a file macro and a stdio
+  FILE* filehandle.  Be sure to fopen() the filehandle before passing
+  it! If you're programming in an operating system that cares about such
+  things (DOS), be sure to fopen() the FOCUS file in "binary" mode. It
+  won't hurt to do this on any platform.
+
+  The constructor initializes segment information and some index
+  information, then reposition()s the root segment.
+
+  Please note that another constructor exists: FOCFILE(FILE*). This is
+  for rdfocfdt to use when it wants to access the basic information
+  about the FOCUS file, but doesn't already know anything about the
+  Master File Description. Using this constructor makes your FOCFILE
+  object very disfunctional. You should not use this function for normal
+  processing of FOCUS files. Use it only if you are creating a program
+  similar to rdfocfdt, a progam that summarizes information about the
+  FOCUS file, not from the FOCUS file.
+
+  3.2.2.  Destructor
+
+       ~FOCFILE()
+
+  The FOCFILE destructor frees all the memory that it allocated for the
+  object, then returns. It does not free() any memory allocated with the
+  string_alloc() functions. Any children FOCFILE objects that were
+  join()ed are left alone.
+
+  The destructor does not fclose() or do anything at all to the FILE*
+  filehandle that you originally passed to the constructor.  You must
+  fclose() it yourself.
+
+  3.2.3.  find()
+
+       int find(INDEX_MACRO, char* key)
+       int find(INDEX_MACRO, long& key)
+       int find(INDEX_MACRO, double& key)
+       int find(INDEX_MACRO, float& key)
+       int find(INDEX_MACRO, SMDATE& key)
+
+  find() quickly scans an index to determine if any record exists in
+  which the indexed field has the value of key. It does not position the
+  cursor to that record; it simply states matter-of-factly whether or
+  not such a record exists.
+
+  The find() function returns 1 on success, 0 on failure.
+
+  3.2.4.  hold()
+
+  int hold(char*,   FIELD_MACRO)
+  int hold(long&,   FIELD_MACRO)
+  int hold(double&, FIELD_MACRO)
+  int hold(float&,  FIELD_MACRO)
+  int hold(SDMATE&, FIELD_MACRO)
+  int hold(char*,   FIELD_MACRO, FIELD_MACRO)
+
+  The hold() function will read a field from the current record
+  position.  To read alphanumeric fields, pass a char* value to hold().
+  Remember that you can use string_alloc() to allocate the memory for a
+  field.
+
+  Other forms of hold() take a reference to a variable. You can simply
+  name a long, double, or float variable that you have access to, and
+  the value of the field will be placed in that field. There is no need
+  for pointers.
+
+  A 1 is returned if the record was readable (and thus the hold() was
+  successful). Otherwise, a 0 is returned. This is useful for testing
+  accessiblity of unique records after using next_with_uniques() or
+  match_with_uniques(); the unique-related functions return the success-
+  flag of the non-unique segment, but not the unique segment.
+
+  The decision to use a pointer for alphanumeric fields and references
+  for numeric fields was made so that the call to hold() for each
+  variable type will look the same syntactically.  If you allocate the
+  string storage space with string_alloc(), then you can simply pass the
+  character pointer to hold(). There is no need for asterisks or
+  ampersands when writing the first argument to read_field(). This
+  example shows how to read and print fields of all four field-types.
+  Assume that foc is a FOCFILE object that has already been created.
+
+  ______________________________________________________________________
+  char	*alphanumeric_value;
+  long	integer_value;
+  double double_float_value;
+  float	float_value;
+
+  alphanumeric_value = foc->string_alloc(FOCFLD_SAMPLE_NAME);
+
+  // Notice the similar syntax for all types of variables
+
+  foc->hold(alphanumeric_value, FOCFLD_SAMPLE_NAME);
+  foc->hold(integer_value,	FOCFLD_SAMPLE_AGE);
+  foc->hold(double_float_value, FOCFLD_SAMPLE_SCORE_D);
+  foc->hold(float_value,	FOCFLD_SAMPLE_SCORE_F);
+
+  printf(FOCFMT_SAMPLE_NAME " is " FOCFMT_SAMPLE_AGE
+	  " years old and has scores " FOCFMT_SAMPLE_SCORE_D
+	  " and " FOCFMT_SAMPLE_SCORE_F "\n",
+	  alphanumeric_value, integer_value,
+	  double_float_value, float_value);
+  ______________________________________________________________________
+
+  Like its two-argument string_alloc() cousin, hold() can operate on
+  range of fields. It will write to your string storage space the string
+  that is created by reading from the first field up to and including
+  the second field. Please use this only for ranges of fields which
+  contain only alphanumeric fields. A numeric field may contain an ASCII
+  zero, which is the string-terminator character in C and C++.
+  3.2.5.  join()
+
+       int join(FIELD_MACRO, FOCFILE* child_foc_file, INDEX_MACRO)
+
+  You can join two FOCUS files together in a relational-like fashion
+  with the join() command. A field in the parent FOCUS file is joined to
+  an indexed field in the child FOCUS file. When you move the cursor in
+  the parent segment, the cursor in the child FOCUS file is moved
+  accordingly.
+
+  A FOCUS file may be joined to itself. Simply create two distinct
+  FOCFILE objects and join() them together. The distinct FOCFILE objects
+  may reference the same stdio FILE* filehandle, since each FOCFILE
+  object maintains its own record pointer. However, if you have the
+  memory to spare, you should create two FILE* filehandles, since each
+  will have its own stdio buffer in memory, which might make access
+  faster.
+
+  The join() function returns an integer which is the join-handle, or
+  the identification number of the join.  When the join between two
+  FOCFILE objects is no longer needed, it may be cleared by passing the
+  join-handle to the join_clear() function. This is usefel to free some
+  memory and to increase the speed of execution.
+
+  The order of the arguments in the FocFile join() is slightly different
+  than FOCUS's JOIN because of C++'s syntax. The following code sample
+  shows the equivalent join statements in FOCUS and in C++ using
+  FocFile.
+
+  ______________________________________________________________________
+  -* FOCUS
+  -* -----
+  JOIN PARENT_FIELD IN PARENT TO CHILD_FIELD IN CHILD AS JOIN_A
+
+  // C++
+  // ---
+  FOCFILE *Parent, *Child;
+  int join_a = Parent->join(FOCFLD_PARENT_PARENT_FIELD,
+			    Child,
+			    FOCIDX_CHILD_CHILD_FIELD);
+  ______________________________________________________________________
+
+  Beyond the join, the two FOCFILE objects still retain their own
+  independent methods. When moving the cursor in the parent segment, the
+  cursor will move in the child FOCUS file. After that, you can continue
+  processing the sub-levels of the second FOCFILE's hierarchy by using
+  that FOCFILE's methods.  This is different from how FOCUS acts. In
+  FOCUS, the child FOCUS file becomes part of the parent FOCUS file, and
+  you manipulate all the fields in both files by referencing just the
+  parent FOCUS file in a TABLE request.
+
+  3.2.6.  join_clear()
+
+  int join_clear()
+  int join_clear(int join_handle)
+
+  Not supported yet
+
+  You may remove joins between two FOCFILE objectes by calling the
+  join_clear() function in the parent FOCFILE and passing it the join-
+  handle of the join that you which to remove. You can remove all joins
+  at once by passing no argument to join_clear().
+
+  The join_clear() function returns 1 upon success, and 0 upon failure.
+  It should only fail if the join-handle passed to it does not
+  correspond to an existing join.
+
+  Join-handles are implemented as integers.
+
+  3.2.7.  match()
+
+       int match(FIELD_MACRO, char* key)
+       int match(FIELD_MACRO, long& key)
+       int match(FIELD_MACRO, double& key)
+       int match(FIELD_MACRO, float& key)
+       int match(FIELD_MACRO, SMDATE& key)
+
+  The match() function finds the first record in which the specified
+  field matches the key.  The match() requires a field macro; the
+  function will iteratively scan each record from the current record
+  position until it finds the key in the specified field.  It is a dumb
+  function in that it does not make any use of index information or the
+  natural order of the segment records; it's a simple search, and can be
+  slow.
+
+  match() returns 1 if it found a record.  On failure, it returns 0.
+
+  3.2.8.  match_with_uniques()
+
+       int match_with_uniques(FIELD_MACRO, char* key)
+       int match_with_uniques(FIELD_MACRO, long& key)
+       int match_with_uniques(FIELD_MACRO, double& key)
+       int match_with_uniques(FIELD_MACRO, float& key)
+       int match_with_uniques(FIELD_MACRO, SMDATE& key)
+
+  This performs the same function as match(), but then automatically
+  performs a next() on any unique children of the segment.
+
+  3.2.9.  next()
+
+       int next()
+       int next(SEGMENT_MACRO)
+       int next(FIELD_MACRO)
+
+  Use the next() function to advance a segment's cursor by one record.
+  A call to next() with no argument will advance the root segment's
+  cursor. Calling next() with a field macro will advance the cursor of
+  the segment in which the field resides.
+
+  The next() function returns a 1 for success, or a 0 on failure.
+  Failure occurs when there are no more records in the segment to read.
+  Therefore, a common idiom to read all the records in a segment is:
+
+  ______________________________________________________________________
+  int number_of_records = 0;
+
+  while ( car->next() ) {
+      number_of_records++;
+  }
+
+  printf("Car's root segment contains %d records.\n",
+      number_of_records);
+  ______________________________________________________________________
+
+  3.2.10.  next_with_uniques()
+
+       int next_with_uniques()
+       int next_with_uniques(SEGMENT_MACRO)
+       int next_with_uniques(FIELD_MACRO)
+
+  This performs the same function as next(), but then automatically
+  performs a next() on any unique children of the segment.
+
+  3.2.11.  reccount()
+
+       int reccount()
+       int reccount(SEGMENT_MACRO)
+       int reccount(FIELD_MACRO)
+       int reccount(SEGMENT_MACRO, int filter(FOCFILE*))
+       int reccount(FIELD_MACRO, int filter(FOCFILE*))
+
+  The reccount() function has no equivalent in the FOCUS languages. I
+  threw it in FocFile because it seemed useful.	reccount() counts the
+  number of records in a segment. If called with no argument, the root
+  segment is used. If a field macro is passed as the first argument, the
+  records in the segment in which the field lies are counted.
+
+  Implementation detail: For all segments, the segment is first
+  reposition()'ed, then next()'ed. The cursor is left at the end of the
+  segment.
+
+  You may optionally pass a pointer to a function to reccount().  The
+  function must take a FOCFILE pointer as its only argument, and return
+  an integer. As reccount() iterates over each record, the filter
+  function is called. The value returned from the filter function is
+  added to the record count. Your filter function will therefore usually
+  return either 1 or 0. However, the function may return any positive or
+  negative integer, and that value will be added to the record count.
+  After iterating through all the records in the segment, the total
+  recourd count is returned the calling program.
+
+  Since the filter function is passed as a pointer, it does not have to
+  be named filter().
+
+  Record-iterations takes into account the current position of the
+  parent segment. You must iterate down the hierarchy before you can use
+  reccount() in a non-root segment. To count the number of car models in
+  car.foc, the ancestor-segments to the segment in question must be
+  accessed:
+
+  ______________________________________________________________________
+  int total = 0;
+  while(foc->next(FOCSEG_CAR_ORIGIN)) {
+      while(foc->next(FOCSEG_CAR_COMP)) {
+	  while(foc->next(FOCSEG_CAR_CARREC)) {
+	      total += foc->reccount(FOCSEG_CAR_BODY);
+	  }
+      }
+  }
+  ______________________________________________________________________
+
+  To count the number of car models in CAR.FOC that have four doors, the
+  following filter function will help:
+
+  ______________________________________________________________________
+
+  int four_doors(FOCFILE *foc) {
+	  long seats;
+      if (foc->hold(seats, FOCFLD_CAR_SEATS))
+	  return (seats == 4);
+      else
+	  return 0;
+  }
+  ______________________________________________________________________
+
+  You can then count the car models:
+
+  ______________________________________________________________________
+  int total = 0;
+  while(foc->next(FOCSEG_CAR_ORIGIN)) {
+      while(foc->next(FOCSEG_CAR_COMP)) {
+	  while(foc->next(FOCSEG_CAR_CARREC)) {
+	      total += foc->reccount(FOCSEG_CAR_BODY, four_doors);
+	  }
+      }
+  }
+  ______________________________________________________________________
+
+  A filter function is probably overkill in the above example, but may
+  be useful in more complicated examples. It also may produce more
+  readable code.
+
+  3.2.12.  reposition()
+
+       void reposition()
+       void reposition(SEGMENT_MACRO)
+       void reposition(FIELD_MACRO)
+
+  reposition() moves the cursor in the segment to the beginning record.
+  If called with no argument, the root segment's cursor is rewound to
+  the beginning. If called with a field macro, the cursor of the segment
+  in which that field resides is moved to the beginning record.
+
+  If a non-root segment is reposition()ed, the cursor moves to the
+  beginning child-record of the parent segment's children. That is,
+  reposition() takes into account the cursor of the segment's parent.
+  That ``parent-cursor'' dictates which record in the segment is the
+  first logical record.
+
+  3.2.13.  string_alloc()
+
+       char* string_alloc(FIELD_MACRO)
+       char* string_alloc(FIELD_MACRO, FIELD_MACRO)
+
+  In your C++ program you must explicitly allocate the string storage
+  space for any alphanumeric fields that you want to retrieve from the
+  FOCUS file.  You can simply malloc() this storage space by yourself.
+  However, since the length of each field is stored in a field macro, a
+  more elegant solution is to call a function that will allocate the
+  space according to the information in the field macro.
+
+  By passing string_alloc() one field macro, it will allocate space
+  equal to the length of the field plus one character.	The extra
+  character is for the terminating NUL value (ASCII 0) that terminates a
+  C string.
+
+  By passing string_alloc() two field macros, it will allocate enough
+  space to hold all the fields from the first field macro up to and
+  including the second field macro, plus one character for the
+  terminating NUL character. Of course, the two fields must reside in
+  the same segment.  This function is useful if you are doing record-
+  based processing and do not intend to parse the record into distinct
+  fields. It is dangerous to use this form of string_alloc() on any
+  range of fields that includes a non-alphanumeric field (i.e., a non
+  'A' type in FOCUS). A numeric field may contain an ASCII 0, which C
+  and C++ will interpret as the end of the string.
+
+  Both forms of string_alloc() return a pointer to the newly-allocated
+  memory. You must free() this memory yourself. The destruction of the
+  FOCFILE object does not free() this memory for you.
+
+  3.3.	SMDATE API
+
+  3.3.1.  Constructor
+
+       SMDATE()
+       SMDATE(long Julian_date [, long Starting_date])
+       SMDATE(int year, int month, int mday [, long Starting_date]);
+
+  An SMDATE object can be created by passing no arguments to the
+  constructor. However, the value of the object, namely the date, is
+  uninitialized. To initialize the date at the time of construction of
+  the object, pass the constructor a Julian date. By ``Julian date'' I
+  refer to an integer (in C-speak, a long integer) number of days from a
+  starting date.
+
+  By default, the starting date for the SMDATE class is December 31,
+  1900. Therefore, as in FOCUS, day number 1 is January 1, 1901, the
+  first day of the 20th century.
+
+  You may specify a different starting date by supplying it as the
+  second argument.i This is useful if you will be using SMDATE objects
+  with Julian dates from other systems that use a different offset date.
+  December 31, 1899, is a popular starting date in other database
+  systems. All starting dates that you pass to the constructor should be
+  the long int number of days since November 17, 1858. If you need to
+  calculate that offset, see the internal() method in the SMDATE API.
+
+  3.3.2.  Destructor
+
+       ~SMDATE()
+
+  An SMDATE object is destroyed easily enough. It is completely
+  destroyed; you can forget about the object after its demise.
+  3.3.3.  internal()
+
+       long internal(void)
+
+  Returns a long integer which is the representation of the date
+  internal to the SMDATE object. The current implementation of SMDATE
+  stores dates as the number of days since November 17, 1858.
+
+  3.3.4.  julian()
+
+       long julian(void)
+
+  Returns a long integer which is the programmer's idea of the Julian
+  date.	It is the number of days since the date offset that was set for
+  the object during its creation.
+
+  3.3.5.  mday()
+
+       int mday(void)
+
+  Returns the day of the month. 1 through 28, 29, 30, or 31, depending
+  on the month.
+
+  3.3.6.  month()
+
+       int month(void)
+
+  Returns the number of the month, 1 through 12.
+
+  3.3.7.  today()
+
+       static SMDATE today();
+       static SMDATE today(Date_offset);
+
+  Sets the SMDATE object to today's date. The
+
+  3.3.8.  wday()
+
+       int wday(void)
+
+  Returns the number of the day of the week, 1 through 7. Sunday is day
+  1.
+
+  3.3.9.  year()
+
+       int year(void)
+
+  Returns the year as the number of years since 1 BC (i.e., all digits
+  of the year are returned). The year 1997 is returned as 1997.
+
+  3.3.10.  zmonth()
+
+       int zmonth(void)
+
+  Returns the number of the month, 0 through 11.  Starting with zero is
+  useful for indexing into an array of month names.
+
+  3.3.11.  zwday()
+
+       int zwday(void)
+
+  Returns the number of the day of the week, 0 through 6. Sunday is day
+  0.  Starting with zero is useful for indexing into an array of day
+  names.
+
+  3.4.	Caveats
+
+  Here are a few miscellaneous items to remember when you are using the
+  FocFile library.
+
+  To read or manipulate a segment, you must first access its parent
+  segment! You cannot next() the root segment and then next() the
+  grandchild segment. FocFile uses caching techniques to make processing
+  as fast as possible by avoiding unnecessary disk I/O. Therefore, the
+  grandchild segment isn't next()ed until the intervening segment is
+  next()ed. It may seem inconvenient, but it avoids having to move the
+  cursor in all descendent segments, even the branches that you don't
+  care about.
+
+  Unique segments are really just S0 segments with only one record for
+  each parent. You have to next() into the unique segment as if it were
+  a regular child segment.  Alternatively, you can use the
+  next_with_uniques() or match_with_uniques() functions to do this for
+  you.	These functions advance the unique children, but not the non-
+  unique children!
+
+  join() only works for one-to-one joins. This will definitely be
+  changed in the future.
+
+  Each FOCFILE object requires a lot of memory. Each segment uses about
+  4KB of memory to hold its variables and a disk buffer. Each index uses
+  4KB for each level in the balanced tree (usually one or two levels,
+  although three would not be unreasonable). The disk buffers for each
+  segment and index greatly speed up the disk I/O.  Each disk buffer
+  (4000 bytes) is allocated at the moment the segment or index is
+  accessed. If you have a 10-segment FOCUS file, but only read two
+  segments with FocFile, then only 8KB is allocated for disk buffers
+  within your FOCFILE object, not 40KB.
+
+  Please take advantage of the format macros that mas2h defines for each
+  field in your FOCUS file. They help you use printf() to print fields
+  exactly as FOCUS would print them, except for smart dates, which
+  aren't yet supported in FocFile.
+
